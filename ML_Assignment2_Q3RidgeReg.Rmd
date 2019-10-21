@@ -1,0 +1,203 @@
+---
+title: "ML_Assignment2_Q3RidgeReg"
+author: "Harika Panuganty"
+date: "7/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+rm(list=ls())
+
+library(caret)
+library(plyr)
+library(dplyr)
+library(pROC)
+library(glmnet)
+library(glmnetUtils)
+```
+
+
+```{r}
+#Section 3: Splice Junction
+
+#Using the training datasets, create the following models:
+
+#2.	Ridge Regression model : This model utilizes all features to splice-junction type in a logistic regression framework with regularization. 
+
+#a) EI vs non-EI
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test.r <- d.test.features
+splice_train.r <- d.train.features
+
+splice_train.r %>% mutate(class = ifelse(class == "EI", "EI", "Non-EI")) -> splice_train.r
+splice_test.r %>% mutate(class = ifelse(class == "EI", "EI", "Non-EI")) -> splice_test.r
+
+#as.factoring
+splice_train.r$class <- as.factor(splice_train.r$class)
+splice_test.r$class <- as.factor(splice_test.r$class)
+
+splice_train.r.ridge <- glmnet(class ~ . , data = splice_train.r, family = "binomial", alpha = 0)
+
+#to select good lambda, use 5 fold cv in glmnet then fine-tune in caret
+splice_train.r.ridge.cv <- cv.glmnet(class ~ . , data = splice_train.r, family = "binomial", alpha = 0, nfolds = 5)
+
+#lambda with min deviance 
+splice_train.r.ridge.cv$lambda.min
+
+#lambda with 1se deviance 
+splice_train.r.ridge.cv$lambda.1se
+
+#create grid for all lambda values in between
+splice_train.r.min.lambda <- min(splice_train.r.ridge.cv$lambda.min, splice_train.r.ridge.cv$lambda.1se)
+splice_train.r.max.lambda <- max(splice_train.r.ridge.cv$lambda.min, splice_train.r.ridge.cv$lambda.1se)
+splice_train.r.lambda_grid <- seq(splice_train.r.min.lambda, splice_train.r.max.lambda, by=0.001)
+splice_train.r_alpha_grid <- c(0)
+splice_train.r_objGrid <- expand.grid(alpha = splice_train.r_alpha_grid, lambda = splice_train.r.lambda_grid)
+
+fitControl <- trainControl(method = "cv", number = 5)
+splice_train.r.reg.model <- train(class ~ . , data = splice_train.r, method = "glmnet", tuneGrid = splice_train.r_objGrid, trControl = fitControl)
+
+splice_train.pred.r <- predict(object = splice_train.r.reg.model, splice_test.r, type = "prob")
+splice_test.r$predicted_class <- splice_train.pred.r$EI
+splice.perf.r <- roc(response = splice_test.r$class, predictor = splice_test.r$predicted_class)
+
+print(pROC::auc(splice.perf.r))
+print(pROC::ci.auc(splice.perf.r))
+
+
+```
+
+
+```{r}
+
+#Section 3: Splice Junction
+
+#Using the training datasets, create the following models:
+
+#2.	Ridge Regression model : This model utilizes all features to splice-junction type in a logistic regression framework with regularization. 
+
+#b) IE vs non-IE
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test.r.ie <- d.test.features
+splice_train.r.ie <- d.train.features
+
+splice_train.r.ie %>% mutate(class = ifelse(class == "IE", "IE", "Non-IE")) -> splice_train.r.ie
+splice_test.r.ie %>% mutate(class = ifelse(class == "IE", "IE", "Non-IE")) -> splice_test.r.ie
+
+#as.factoring
+splice_train.r.ie$class <- as.factor(splice_train.r.ie$class)
+splice_test.r.ie$class <- as.factor(splice_test.r.ie$class)
+
+splice_train.r.ridge.ie <- glmnet(class ~ . , data = splice_train.r.ie, family = "binomial", alpha = 0)
+
+#to select good lambda, use 5 fold cv in glmnet then fine-tune in caret
+splice_train.r.ridge.cv.ie <- cv.glmnet(class ~ . , data = splice_train.r.ie, family = "binomial", alpha = 0, nfolds = 5)
+
+#lambda with min deviance
+splice_train.r.ridge.cv.ie$lambda.min
+
+#lambda with 1se deviance
+splice_train.r.ridge.cv.ie$lambda.1se
+
+#create grid for all lambda values in between
+splice_train.r.min.lambda.ie <- min(splice_train.r.ridge.cv.ie$lambda.min, splice_train.r.ridge.cv.ie$lambda.1se)
+splice_train.r.max.lambda.ie <- max(splice_train.r.ridge.cv.ie$lambda.min, splice_train.r.ridge.cv.ie$lambda.1se)
+splice_train.r.lambda_grid.ie <- seq(splice_train.r.min.lambda.ie, splice_train.r.max.lambda.ie, by=0.001)
+splice_train.r_alpha_grid.ie <- c(0)
+splice_train.r_objGrid.ie <- expand.grid(alpha = splice_train.r_alpha_grid.ie, lambda = splice_train.r.lambda_grid.ie)
+
+fitControl <- trainControl(method = "cv", number = 5)
+splice_train.r.reg.model.ie <- train(class ~ . , data = splice_train.r.ie, method = "glmnet", tuneGrid = splice_train.r_objGrid.ie, trControl = fitControl)
+
+splice_train.pred.r.ie <- predict(object = splice_train.r.reg.model.ie, splice_test.r.ie, type = "prob")
+splice_test.r.ie$predicted_class <- splice_train.pred.r.ie$IE
+splice.perf.r.ie <- roc(response = splice_test.r.ie$class, predictor = splice_test.r.ie$predicted_class)
+
+print(pROC::auc(splice.perf.r.ie))
+print(pROC::ci.auc(splice.perf.r.ie))
+
+
+```
+
+
+```{r}
+#Section 3: Splice Junction
+
+#Using the training datasets, create the following models:
+
+#2.	Ridge Regression model : This model utilizes all features to splice-junction type in a logistic regression framework with regularization. 
+
+#c) IE/EI vs non-IE-EI=0
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test.r.n <- d.test.features
+splice_train.r.n <- d.train.features
+
+splice_train.r.n %>% mutate(class = ifelse(class == "IE", "EI", ifelse(class == "EI","EI", "Non-IE-EI"))) -> splice_train.r.n
+splice_test.r.n %>% mutate(class = ifelse(class == "IE", "EI", ifelse(class == "EI","EI", "Non-IE-EI"))) -> splice_test.r.n
+
+splice_train.r.n$class <- as.factor(splice_train.r.n$class)
+splice_test.r.n$class <- as.factor(splice_test.r.n$class)
+
+#splice_train.r.n <- read.csv("~/Desktop/datasets/d.train.features.csv")
+#splice_test.r.n <- read.csv("~/Desktop/datasets/d.test.features.csv")
+
+#splice_train.r.n$V36[splice_train.r.n$V36 == "S"] <- "N"
+#splice_test.r.n$V35[splice_test.r.n$V35 == "R"] <- "N"
+
+#remove invalid level factor, NA generated error
+#splice_test.r.n <- splice_test.r.n[complete.cases(splice_test.r.n),]
+
+#splice_train.r.n$class <- as.factor(splice_train.r.n$class)
+#levels(splice_train.r.n$class) <- c("Yes", "Yes", "No") #IE/EI=1 vs Non-IE-EI=0
+
+splice_train.r.ridge.n <- glmnet(class ~ . , data = splice_train.r.n, family = "binomial", alpha = 0)
+
+#to select good lambda, use 5 fold cv in glmnet then fine-tune in caret
+splice_train.r.ridge.cv.n <- cv.glmnet(class ~ . , data = splice_train.r.n, family = "binomial", alpha = 0, nfolds = 5)
+
+#lambda with min deviance 
+splice_train.r.ridge.cv.n$lambda.min
+
+#lambda with 1se deviance 
+splice_train.r.ridge.cv.n$lambda.1se
+
+#create grid for all lambda values in between
+splice_train.r.min.lambda.n <- min(splice_train.r.ridge.cv.n$lambda.min, splice_train.r.ridge.cv.n$lambda.1se)
+splice_train.r.max.lambda.n <- max(splice_train.r.ridge.cv.n$lambda.min, splice_train.r.ridge.cv.n$lambda.1se)
+splice_train.r.lambda_grid.n <- seq(splice_train.r.min.lambda.n, splice_train.r.max.lambda.n, by=0.001)
+splice_train.r_alpha_grid.n <- c(0)
+splice_train.r_objGrid.n <- expand.grid(alpha = splice_train.r_alpha_grid.n, lambda = splice_train.r.lambda_grid.n)
+
+fitControl <- trainControl(method = "cv", number = 5)
+splice_train.r.reg.model.n <- train(class ~ . , data = splice_train.r.n, method = "glmnet", tuneGrid = splice_train.r_objGrid.n, trControl = fitControl)
+
+splice_train.pred.r.n <- predict(object = splice_train.r.reg.model.n, splice_test.r.n, type = "prob")
+splice_test.r.n$predicted_class <- splice_train.pred.r.n$EI
+splice.perf.r.n <- roc(response = splice_test.r.n$class, predictor = splice_test.r.n$predicted_class)
+
+print(pROC::auc(splice.perf.r.n))
+print(pROC::ci.auc(splice.perf.r.n))
+
+
+
+```
+

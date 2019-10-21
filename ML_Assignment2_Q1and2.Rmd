@@ -1,0 +1,193 @@
+---
+title: "ML_Assignment_2"
+author: "Harika Panuganty"
+date: "7/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+rm(list=ls())
+
+library(caret)
+library(plyr)
+library(dplyr)
+library(pROC)
+library(glmnet)
+library(glmnetUtils)
+
+```
+
+```{r}
+
+#Section 1: EMR Bots 30-day Readmission study
+
+#Using the training datasets, create the following models:
+
+#1. Naïve model: This model utilizes only patient characteristics (age, gender and race) to predict 30-day readmission in a logistic regression framework
+
+readmission_train <- read.csv("~/Desktop/datasets/readmission_train.csv")
+
+readmission_test <- read.csv("~/Desktop/datasets/readmission_test.csv")
+
+#pre-processing to change outcome variable into levels
+#predicing outcome 1=readmitted, 0=not readmitted
+readmission_train$outcome <- as.factor(readmission_train$outcome)
+levels(readmission_train$outcome) <- c("No", "Yes")
+
+#training data
+fitControl <- trainControl(method = "cv", number = 5)
+glm.readmission.train <- train(outcome ~ PatientEncounterAge + PatientGender + PatientRace, data = readmission_train, method = "glm", family = "binomial", trControl = fitControl)
+
+#print(glm.readmission.train)
+
+readmission.pred <- predict(object = glm.readmission.train, readmission_test, type = "prob")
+readmission_test$predicted_outcome <- readmission.pred$Yes
+
+#since the question is asking to predict 30 day readmission
+readmission_perf <- roc(response = readmission_test$outcome, predictor = readmission_test$predicted_outcome)
+
+print(pROC::auc(readmission_perf))
+
+print(pROC::ci.auc(readmission_perf))
+
+ 
+```
+
+```{r}
+
+#Using the training datasets, create the following models:
+  
+#2. GLM model : This model utilizes patient characteristics and most-recent lab recordings to predict 30-day admissions in a logistic regression framework.
+
+#pre-processing to change outcome variable into levels
+#predicing outcome 1=readmitted, 0=not readmitted
+readmission_train$outcome <- as.factor(readmission_train$outcome)
+levels(readmission_train$outcome) <- c("No", "Yes")
+
+#training data
+fitControl <- trainControl(method = "cv", number = 5)
+#all.glm.readmission.train <- train(outcome ~ ., data = readmission_train, method = "glm", family = "binomial", trControl = fitControl)
+
+all.glm.readmission.train <- train(outcome ~ PatientGender + PatientRace + PatientEncounterAge +
+CBC..ABSOLUTE.LYMPHOCYTES + CBC..ABSOLUTE.NEUTROPHILS + CBC..BASOPHILS + CBC..EOSINOPHILS + CBC..HEMATOCRIT + CBC..HEMOGLOBIN + CBC..PLATELET.COUNT + CBC..RED.BLOOD.CELL.COUNT + CBC..WHITE.BLOOD.CELL.COUNT + METABOLIC..ALBUMIN + METABOLIC..BILI.TOTAL + METABOLIC..BUN + METABOLIC..CALCIUM + METABOLIC..CREATININE + METABOLIC..POTASSIUM + METABOLIC..SODIUM
+, data = readmission_train, method = "glm", family = "binomial", trControl = fitControl)
+
+#print(all.glm.readmission.train)
+
+all.readmission.pred <- predict(object = all.glm.readmission.train, readmission_test, type = "prob")
+readmission_test$predicted_outcome <- all.readmission.pred$Yes
+#since the question is asking to predict 30 day readmission
+all.readmission_perf <- roc(response = readmission_test$outcome, predictor = readmission_test$predicted_outcome)
+
+print(pROC::auc(all.readmission_perf))
+
+print(pROC::ci.auc(all.readmission_perf))
+
+
+```
+
+```{r}
+#Section 2: Gusto study
+
+#Using the training datasets, create the following models:
+
+#1.	GLM model : This model utilizes all features to predict 30-day mortality in a logistic regression framework.
+
+gusto_train <- read.csv("~/Desktop/datasets/gusto_train.csv")
+gusto_test <- read.csv("~/Desktop/datasets/gusto_test.csv")
+
+#pre-processing to change DAY30 variable into levels
+#predicting 1=dead after 30 days, 0=alive after 30 days
+gusto_train$DAY30 <- as.factor(gusto_train$DAY30)
+levels(gusto_train$DAY30) <- c("No", "Yes")
+
+#training data
+fitControl <- trainControl(method = "cv", number = 5)
+gusto.glm.train <- train(DAY30 ~ . , data = gusto_train, method = "glm", family = "binomial", trControl = fitControl)
+
+gusto.pred <- predict(object = gusto.glm.train, gusto_test, type = "prob")
+gusto_test$predicted_DAY30 <- gusto.pred$Yes
+gusto.pred_perf <- roc(response = gusto_test$DAY30, predictor = gusto_test$predicted_DAY30)
+
+print(pROC::auc(gusto.pred_perf))
+
+print(pROC::ci.auc(gusto.pred_perf))
+
+
+```
+
+```{r}
+
+#Section 2: Gusto study
+
+#Using the training datasets, create the following models:
+
+#2.	Ridge Regression model : This model utilizes all features to predict 30-day mortality in a logistic regression framework with regularization. 
+
+gusto_train <- read.csv("~/Desktop/datasets/gusto_train.csv")
+gusto_test <- read.csv("~/Desktop/datasets/gusto_test.csv")
+
+#pre-processing to change DAY30 variable into levels
+#predicting 1=dead after 30 days, 0=alive after 30 days
+gusto_train$DAY30 <- as.factor(gusto_train$DAY30)
+levels(gusto_train$DAY30) <- c("No", "Yes")
+
+gusto_ridge <- glmnet(DAY30 ~ . , data = gusto_train, family = "binomial", alpha = 0)
+
+#to select good lambda, use 5 fold cv in glmnet then fine-tune caret
+gusto_ridge_cv <- cv.glmnet(DAY30 ~ . , data = gusto_train, family = "binomial", alpha = 0, nfolds = 5)
+
+#we want lambda with min deviance = 0.005768042
+gusto_ridge_cv$lambda.min
+
+#lambda with 1se = 0.2870768
+gusto_ridge_cv$lambda.1se 
+
+#create grid for all lambda values in between 
+gusto_min_lambda <- min(gusto_ridge_cv$lambda.min, gusto_ridge_cv$lambda.1se)
+gusto_max_lambda <- max(gusto_ridge_cv$lambda.min, gusto_ridge_cv$lambda.1se)
+gusto_lamba_grid <- seq(gusto_min_lambda, gusto_max_lambda, by = 0.001)
+gusto_alpha_grid <- c(0)
+gusto_objGrid <- expand.grid(alpha = gusto_alpha_grid, lambda = gusto_lamba_grid)
+
+fitControl <- trainControl(method = "cv", number = 5)
+gusto_reg_model <- train(DAY30 ~ . , data = gusto_train, method = "glmnet", tuneGrid = gusto_objGrid, trControl = fitControl)
+
+#print(gusto_reg_model)
+#final values for alpha = 0, lambda = 0.01676804
+
+gusto.pred.r <- predict(object = gusto_reg_model, gusto_test, type = "prob")
+gusto_test$predicted_DAY30 <- gusto.pred.r$Yes
+gusto.perf.r <- roc(response = gusto_test$DAY30, predictor = gusto_test$predicted_DAY30)
+
+print(pROC::auc(gusto.perf.r))
+print(pROC::ci.auc(gusto.perf.r))
+
+
+```
+
+

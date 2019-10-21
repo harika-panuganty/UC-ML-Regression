@@ -1,0 +1,130 @@
+---
+title: "ML_Assignment2_Q3"
+author: "Harika Panuganty"
+date: "7/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+rm(list=ls())
+
+library(caret)
+library(plyr)
+library(dplyr)
+library(pROC)
+library(glmnet)
+library(glmnetUtils)
+```
+
+
+
+```{r}
+#Section 3: Splice Junction
+
+#Using the training datasets, create the following models:
+
+#1.	GLM model : This model utilizes all features to predict splice-junction type in a logistic regression framework.
+
+#a) EI vs non-EI
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test <- d.test.features
+splice_train <- d.train.features
+
+splice_train %>% mutate(class = ifelse(class == "EI", "EI", "Non-EI")) -> splice_train
+splice_test %>% mutate(class = ifelse(class == "EI", "EI", "Non-EI")) -> splice_test
+
+splice_train$class <- as.factor(splice_train$class)
+splice_test$class <- as.factor(splice_test$class)
+
+#training data
+fitControl <- trainControl(method = "cv", number = 5)
+splice.glm.train <- train(class ~ . , data = splice_train, method = "glm", family = "binomial", trControl = fitControl)
+
+splice.pred <- predict(object = splice.glm.train, splice_test, type = "prob")
+splice_test$predicted_class <- splice.pred$EI
+
+splice.pred_perf <- roc(response = splice_test$class, predictor = splice_test$predicted_class)
+
+print(pROC::auc(splice.pred_perf))
+print(pROC::ci.auc(splice.pred_perf))
+
+```
+
+```{r}
+
+#b) IE vs non-IE
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test.ie <- d.test.features
+splice_train.ie <- d.train.features
+
+splice_train.ie %>% mutate(class = ifelse(class == "IE", "IE", "Non-IE")) -> splice_train.ie
+splice_test.ie %>% mutate(class = ifelse(class == "IE", "IE", "Non-IE")) -> splice_test.ie
+
+splice_train.ie$class <- as.factor(splice_train.ie$class)
+splice_test.ie$class <- as.factor(splice_test.ie$class)
+
+#training data
+fitControl <- trainControl(method = "cv", number = 5)
+splice.glm.train.ie <- train(class ~ . , data = splice_train.ie, method = "glm", family = "binomial", trControl = fitControl)
+
+splice.pred.ie <- predict(object = splice.glm.train.ie, splice_test.ie, type = "prob")
+splice_test.ie$predicted_class <- splice.pred.ie$IE
+
+splice.pred_perf.ie <- roc(response = splice_test.ie$class, predictor = splice_test.ie$predicted_class)
+
+print(pROC::auc(splice.pred_perf.ie))
+print(pROC::ci.auc(splice.pred_perf.ie))
+
+
+```
+
+```{r}
+
+#c) IE/EI vs non-IE-EI=0
+
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_test_data.Rdata")
+load("/Users/harikapanuganty/Desktop/datasets/splicejn_train_data.Rdata")
+
+splice_test.n <- d.test.features
+splice_train.n <- d.train.features
+
+splice_train.n %>% mutate(class = ifelse(class == "IE", "EI", ifelse(class == "EI","EI", "Non-IE-EI"))) -> splice_train.n
+splice_test.n %>% mutate(class = ifelse(class == "IE", "EI", ifelse(class == "EI","EI", "Non-IE-EI"))) -> splice_test.n
+
+splice_train.n$class <- as.factor(splice_train.n$class)
+splice_test.n$class <- as.factor(splice_test.n$class)
+
+fitControl <- trainControl(method = "cv", number = 5)
+glm.model_EI <- train(class ~ ., data = splice_train.n, method = "glm", family = "binomial", trControl = fitControl)
+#print(glm.model_IE)
+
+preds <- predict(object = glm.model_EI, splice_test.n, type = "prob")
+splice_test.n$predicted_default <- preds$EI
+glm_perf_EI <- roc(response = splice_test.n$class, predictor = splice_test.n$predicted_default)
+
+print(pROC::auc(glm_perf_EI))
+
+print(pROC::ci.auc(glm_perf_EI))
+
+```
+
+
+
+
